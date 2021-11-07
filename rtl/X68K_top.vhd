@@ -21,9 +21,9 @@ port(
 	sndclk	:in std_logic;
 
 	ram_ce  :in std_logic := '1';
-	sys_cep :in std_logic;
-	sys_cen :in std_logic;
-	--vid_ce  :in std_logic := '1';
+	sys_ce  :in std_logic;
+	mpu_cep :in std_logic;
+	mpu_cen :in std_logic;
 	fd_ce   :in std_logic := '1';
 	snd_ce  :in std_logic;
 	opn_ce  :in std_logic_vector(1 downto 0);
@@ -76,6 +76,7 @@ port(
 
 	pFDSYNC		:in std_logic_Vector(1 downto 0);
 	pFDEJECT		:in std_logic_Vector(1 downto 0);
+	pFDMOTOR		:out std_logic;
 	
 --MiSTer diskimage
 	mist_mounted	:in std_logic_vector(3 downto 0);	--SRAM & HDD & FDD1 &FDD0
@@ -1680,8 +1681,6 @@ port(
 	
 	vidclk		:in std_logic;
 	vid_ce      :in std_logic := '1';
-	sysclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2441,7 +2440,7 @@ begin
 	-- pllrst<=not pwr_rstn;
 --	pMemClk<=not ramclk;
 
-	sr	:sftclk    generic map(100000000,1,1) port map("1",srst,sysclk,sys_cep,rstn);
+	sr	:sftclk    generic map(100000000,1,1) port map("1",srst,sysclk,sys_ce,rstn);
 
 	mem_rstn<=	plllock;
 
@@ -2461,10 +2460,10 @@ begin
 		pint	=>pwrsw,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		srstn	=>srstn,
 		pclk	=>sysclk,
-		mpu_ce  =>sys_cep,
+		mpu_ce  =>mpu_cep,
 		prstn	=>rstn
 	);
 	
@@ -2473,8 +2472,8 @@ begin
 		HALTn    => '1',
 		extReset => not srstn,
 		pwrUp    => not srstn,
-		enPhi1   => not dma_bconte and sys_cep,
-		enPhi2   => not dma_bconte and sys_cen,
+		enPhi1   => not dma_bconte and mpu_cep,
+		enPhi2   => not dma_bconte and mpu_cen,
 		eRWn     => i_rwn,
 		ASn      => i_ASn,
 		LDSn     => mpu_ldsn,
@@ -2529,7 +2528,7 @@ begin
 	--MPU : TG68 port map(
 	--	clk           =>sysclk,
 	--	reset         =>srstn,
-	--	clkena_in     =>(not dma_bconte) and sys_cep,
+	--	clkena_in     =>(not dma_bconte) and sys_ce,
 	--	data_in       =>dbus,
 	--	IPL           =>mpu_ipl,
 	--	dtack         =>mpu_dtack,
@@ -2598,7 +2597,7 @@ begin
         dtack	=>mpu_dtack,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 	
@@ -2655,7 +2654,7 @@ begin
 		iack	=>IACK3,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -2696,8 +2695,8 @@ begin
 	b_uds<=not b_udsn;
 	
 	iowait<=iowait_rcpy or iowait_sasi or iowait_opm;
-	process(sysclk, sys_cep)begin
-		if(sysclk' event and sysclk='1' and sys_cep = '1') then
+	process(sysclk, sys_ce)begin
+		if(sysclk' event and sysclk='1' and sys_ce = '1') then
 			dwait<=pDip(3);
 		end if;
 	end process;
@@ -2752,7 +2751,7 @@ begin
 		
 		min			=>mmap_min,
 		sclk		=>sysclk,
-		sys_ce      =>sys_cep,
+		sys_ce      =>sys_ce,
 		rstn		=>srstn
 );
 	b_rdn<=not b_rd;
@@ -2882,17 +2881,13 @@ begin
 
 		initdone	=>ram_inidone,
 		sclk		=>sysclk,
-		sys_ce      =>sys_cep,
 		vclk		=>vidclk,
-		vid_ce      =>vid_ce,
 		fclk		=>fdcclk,
-		fd_ce       =>fd_ce,
 		rclk		=>ramclk,
-		ram_ce      =>ram_ce,
 		rstn		=>mem_rstn
 	);
 	
-	nvwpl	:bwlatch generic map(24,8) port map(abus(23 downto 0),b_lds and sys_cep,b_wr(0),dbus(7 downto 0),x"e8e00d",nvwp,sysclk,srstn);
+	nvwpl	:bwlatch generic map(24,8) port map(abus(23 downto 0),b_lds and sys_ce,b_wr(0),dbus(7 downto 0),x"e8e00d",nvwp,sysclk,srstn);
 	nv_ce<='1' when abus(23 downto 14)="1110110100" else '0';
 
 	-- CRTC	:CRTCX68TXT generic map(4) port map(
@@ -3024,7 +3019,7 @@ begin
 		contrast=>contval,
 
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		srstn	=>vid_rstn
 	);
 	contvalm<=	contval;
@@ -3143,7 +3138,7 @@ begin
 		YS			=>vr_YS,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -3284,8 +3279,6 @@ begin
 		
 		vidclk	=>vidclk,
 		vid_ce  =>vid_ce,
-		sysclk	=>sysclk,
-		sys_ce  =>sys_cep,
 		rstn	=>vid_rstn
 	);
 	
@@ -3309,7 +3302,7 @@ begin
 		ack		=>ram_cpya,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn		=>srstn
 	);
 	
@@ -3393,7 +3386,7 @@ begin
 		HRES	=>spreg_HRES,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
 		vid_ce  =>vid_ce,
 		rstn	=>srstn
@@ -3419,7 +3412,7 @@ begin
 		bg_PAT	=>bg_PAT,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
 		vid_ce  =>vid_ce,
 		rstn	=>srstn
@@ -3440,16 +3433,16 @@ begin
 		palout	=>tpal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
 		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 	
-	process(sysclk,rstn,sys_cep)begin
+	process(sysclk,rstn,sys_ce)begin
 		if(rstn='0')then
 			tpal0_pdat<=(others=>'0');
-		elsif(sysclk' event and sysclk='1' and sys_cep = '1')then
+		elsif(sysclk' event and sysclk='1' and sys_ce = '1')then
 			if(tpal_cs='1' and abus(8 downto 1)="00000000")then
 				if(b_wr(1)='1')then
 					tpal0_pdat(15 downto 8)<=dbus(15 downto 8);
@@ -3474,7 +3467,7 @@ begin
 		palout	=>spal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
 		vid_ce  =>vid_ce,
 		rstn	=>srstn
@@ -3500,7 +3493,7 @@ begin
 		palout	=>gpal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
 		vid_ce  =>vid_ce,
 		rstn	=>srstn
@@ -3582,7 +3575,7 @@ begin
 		ismode	=>'0',
 		
 		sclk		=>sysclk,
-		sys_ce      =>sys_cep,
+		sys_ce      =>sys_ce,
 		fclk		=>fdcclk,
 		fd_ce       =>fd_ce,
 		rstn	=>srstn
@@ -3635,7 +3628,7 @@ begin
 		prn_int		=>'0',
 		
 		clk			=>sysclk,
-		ce          =>sys_cep,
+		ce          =>sys_ce,
 		rstn		=>srstn
 	);
 	SASI_IACK<='0';
@@ -3665,7 +3658,7 @@ begin
 		PCLoe	=>ppi_pcloe,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -3765,7 +3758,7 @@ begin
 		IVack	=>mfp_ivack,
 			
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 	
@@ -3788,7 +3781,7 @@ begin
 		mdatout	=>ms_datout,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -3879,7 +3872,7 @@ begin
 		sndout	=>pcm_snd,
 		
 		sysclk	=>sysclk,
-		sys_ce  =>sys_cep,
+		sys_ce  =>sys_ce,
 		sndclk	=>sndclk,
 		snd_ce  =>'1',
 		rstn		=>srstn
@@ -3964,13 +3957,13 @@ begin
 	pPs2Datout<=kb_datout;
 	pPmsClkout<=ms_clkout;
 	pPmsDatout<=ms_datout;
-	process(sysclk,srstn,sys_cep)begin
+	process(sysclk,srstn,sys_ce)begin
 		if(srstn='0')then
 			kb_clkin<='1';
 			kb_datin<='1';
 			ms_clkin<='1';
 			ms_datin<='1';
-		elsif(sysclk' event and sysclk='1' and sys_cep = '1')then
+		elsif(sysclk' event and sysclk='1' and sys_ce = '1')then
 			kb_clkin<=pPs2Clkin;
 			kb_datin<=pPs2Datin;
 			ms_clkin<=pPmsClkin;
@@ -3994,7 +3987,7 @@ begin
 		RTCIN		=>sysrtc,
 
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn		=>'1'
 	);
 
@@ -4034,7 +4027,7 @@ begin
 		GPOE	=>open,
 		
 		clk	=>sysclk,
-		ce  =>sys_cep,
+		ce  =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -4067,7 +4060,7 @@ begin
 		RST		=>SASI_RST,
 		
 		clk		=>sysclk,
-		ce      =>sys_cep,
+		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 	-- SELf	:digifilter generic map(2,'0') port map(SASI_SEL,SASI_SELf,emuclk,emu_ce,srstn);
@@ -4173,11 +4166,15 @@ begin
 		fclk		=>fdcclk,
 		fd_ce       =>fd_ce,
 		sclk		=>sysclk,
-		sys_ce      =>sys_cep,
+		sys_ce      =>sys_ce,
 		rclk		=>ramclk,
 		ram_ce      =>ram_ce,
 		rstn		=>dem_rstn
 );
+
+	pFDMOTOR<=	not FDC_MOTORn(0) when FDC_USELn(0)='0' else
+					not FDC_MOTORn(1) when FDC_USELn(1)='0' else
+					'0';
 	
 	nv_wren<=	'0' when nvwp/=x"31" else
 				'0' when nv_ce='0' else

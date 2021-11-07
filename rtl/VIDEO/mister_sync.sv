@@ -176,7 +176,7 @@ module mister_sync
 		end
 
 		if(~rstn) begin
-			LSEL <= 0;
+			LSEL <= 1;
 			hvcount <= 0;
 			vvcount <= 0;
 			dotpu_cnt <= 0;
@@ -240,7 +240,7 @@ module mister_sync
 	assign LRAMSEL  = LSEL;
 	assign HCOMP    = HCOMPb & pix_ce;
 	assign VCOMP    = VCOMPb & pix_ce;
-	assign VPSTART  = HCOMP && VCOUNT==vtotal_m;
+	assign VPSTART  = HCOMP && VCOUNT==0;
 
 	// FIXME: Make blank color black after debugging
 	assign RFOUT = VIDEN ? {Rdat, Idat} : 6'd0;

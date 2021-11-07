@@ -145,8 +145,6 @@ port(
 	
 	vidclk		:in std_logic;
 	vid_ce      :in std_logic := '1';
-	sysclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end vidcont;
@@ -591,8 +589,8 @@ begin
 				end if;
 				if(vpstart='1')then
 					haddr<=(others=>'0');
-					vaddr<=(others=>'1');
-					raster<=(others=>'1');
+					vaddr<=(others=>'0');
+					raster<=(others=>'0');
 					h3count<=0;
 					g0_clear<=	gclrpage(0) and gclrbusyb;
 					g1_clear<=	gclrpage(1) and gclrbusyb;
@@ -675,54 +673,9 @@ begin
 	end process;
 	
 	vlineno<=vaddr;
-	
-	-- process(vidclk)begin
-	-- 	if rising_edge(vidclk) then
-	-- 		if(rstn='0')then
-	-- 			inter<='0';
-	-- 		elsif(vid_ce='1')then
-	-- 			if(vpstart='1')then
-	-- 				inter<=not inter;
-	-- 			end if;
-	-- 		end if;
-	-- 	end if;
-	-- end process;
-	
-	-- process(rintline,vtotal,vvbgn,vvend)
-	-- begin
-	-- end process;
 
-	-- process(sysclk)
-	-- variable lvaddr0,lvaddr1	:std_logic_vector(9 downto 0);
-	-- variable vaddrx	:std_logic_vector(9 downto 0);
-	-- begin
-	-- 	if rising_edge(sysclk) then
-	-- 		if(rstn='0')then
-	-- 			vaddrx:=(others=>'0');
-	-- 			lvaddr0:=(others=>'0');
-	-- 			lvaddr1:=(others=>'0');
-	-- 			vaddrm<=(others=>'0');
-	-- 			vaddrs<=(others=>'0');
-	-- 			intfil<='0';
-	-- 		elsif(sys_ce='1')then
-	-- 			if(lvaddr0=lvaddr1)then
-	-- 				vaddrs<=lvaddr0;
-	-- 			end if;
-	-- 			lvaddr1:=lvaddr0;
-	-- 			lvaddr0:=raster;
-	-- 			vaddrx:=vaddrs;
-	-- 			vaddrm<=vaddrx;
-	-- 		end if;
-	-- 	end if;
-	-- end process;
-	
-	--rastnum<=	vaddrm;-- when hfreq='1' else ('0' & vaddrm(9 downto 1));
-					-- when xinter='0' else
---					('0' & vaddrm(9 downto 1)) + vtotal;
-
-	--rint<='1' when rintline=rastnum and intfil='1' else '0';
 	rastnum<=raster;
-	rint<='1' when rintline=rastnum and vblank = '0' else '0';
+	rint<='1' when rintline=rastnum else '0';
 	
 	addrx<=haddrmod(9 downto 0);
 	addry<=vaddrmod(9 downto 0);

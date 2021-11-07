@@ -188,8 +188,6 @@ assign LED_POWER = 0;
 assign BUTTONS = 0;
 
 //////////////////////////////////////////////////////////////////
-wire hdd_active = sd_rd[2] || sd_wr[2];
-wire fdd_active = |sd_rd[1:0] || |sd_wr[1:0];
 assign LED_USER  = fdd_active;
 assign LED_DISK  = {1'b1, hdd_active};
  
@@ -202,7 +200,7 @@ assign AUDIO_MIX = status[3:2];
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// X XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  X      XXX
+// X XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XX      XXX
 
 `include "build_id.v" 
 parameter CONF_STR = {
@@ -244,6 +242,7 @@ parameter CONF_STR = {
 	"h1P3-;",
 	"h1P3r8,Reset Hanging Notes;",
 	"-;",
+	"o0,CPU speed,Normal,Turbo;",
 	"R7,NMI Button;",
 	"R8,Power Button;",
 	"R0,Reset and Apply HDD;",
@@ -510,8 +509,9 @@ wire [7:0] red, green, blue;
 wire HBlank, VBlank, HSync, VSync, ce_pix, vid_de;
 
 wire snd_clockmode;
-reg sys_cep;
-reg sys_cen;
+reg sys_ce;
+reg mpu_cep;
+reg mpu_cen;
 reg snd_ce;
 reg [1:0] opn_ce = 0;
 
@@ -520,6 +520,7 @@ always @(posedge clk_sys) begin
 	reg [1:0] div_sys;
 	reg [3:0] div_snd;
 	reg [3:0] div_snd2;
+	reg turbo = 0;
 
 	div_sys <= div_sys + 1'd1;
 	div_snd <= div_snd + 1'd1;
@@ -533,8 +534,12 @@ always @(posedge clk_sys) begin
 	opn_ce[0] <= div_snd2 == 9;
 	opn_ce[1] <= div_opn == 19;
 
-	sys_cep <=  div_sys[1] & div_sys[0];
-	sys_cen <= ~div_sys[1] & div_sys[0];
+	sys_ce <= &div_sys;
+
+	if(&div_sys) turbo <= status[32];
+	mpu_cep <= turbo ?  div_sys[0] : ( div_sys[1] & div_sys[0]);
+	mpu_cen <= turbo ? ~div_sys[0] : (~div_sys[1] & div_sys[0]);
+
 	snd_ce  <= snd_clockmode ? (div_snd2 == 9) : (div_snd == 4);
 end
 
@@ -546,8 +551,9 @@ X68K_top X68K_top
 	.fdcclk     (clk_sys),
 	.sndclk     (clk_sys),
 	
-	.sys_cep    (sys_cep),
-	.sys_cen    (sys_cen),
+	.sys_ce     (sys_ce),
+	.mpu_cep    (mpu_cep),
+	.mpu_cen    (mpu_cen),
 	.snd_ce     (snd_ce),
 	.opn_ce     (opn_ce),
 	
@@ -606,6 +612,7 @@ X68K_top X68K_top
 
 	.pFDSYNC(fdsync),
 	.pFDEJECT(fdeject),
+	.pFDMOTOR(fdd_active),
 
 	.pLed(disk_led),
 	.pDip(4'b0000),
@@ -654,6 +661,12 @@ always @(posedge clk_sys) begin
 
 	if(old_download & ~ioctl_download) ldr_done <= 1;
 end
+
+wire hdd_active;
+wire fdd_active;
+led hdd_led(clk_sys,  sd_ack[2],   hdd_active);
+//led fdd_led(clk_sys, |sd_ack[1:0], fdd_active);
+
 
 ////////////////////////////  AUDIO  ////////////////////////////////////
 wire [17:0] mix_r, mix_l;
@@ -762,5 +775,25 @@ video_mixer #(.LINE_LENGTH(800), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
 	.B(b_mt)
 );
 
+
+endmodule
+
+module led
+(
+	input      clk,
+	input      in,
+	output reg out
+);
+
+integer counter = 0;
+always @(posedge clk) begin
+	if(!counter) out <= 0;
+	else begin
+		counter <= counter - 1'b1;
+		out <= 1;
+	end
+	
+	if(in) counter <= 4500000;
+end
 
 endmodule
