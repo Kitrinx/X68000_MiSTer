@@ -181,7 +181,6 @@ assign {UART_RTS, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
-assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
 assign HDMI_FREEZE = 0;
 
@@ -203,7 +202,7 @@ assign AUDIO_MIX = status[3:2];
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// X XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX         XXX
+// X XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  X      XXX
 
 `include "build_id.v" 
 parameter CONF_STR = {
@@ -230,6 +229,7 @@ parameter CONF_STR = {
 	"d0P1ONQ,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
 	"P1ORS,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"P1-;",
+	"P1o1,Video Frequency,60fps,Original;",
 	"P1O45,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 //	"P1OFH,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"h1P3,MT32-pi;",
@@ -575,6 +575,7 @@ X68K_top X68K_top
 	.ldr_wr(ldr_wr),
 	.ldr_ack(ldr_ack),
 	.ldr_done(ldr_done),
+	.vid_hz(~status[33]),
 
 	.pPs2Clkin(ps2_kbd_clk_out),
 	.pPs2Clkout(ps2_kbd_clk_in),
@@ -624,6 +625,7 @@ X68K_top X68K_top
 	.pVideoVB(VBlank),
 	.pVideoEN(vid_de),
 	.pVideoClk(ce_pix),
+	.pVideoF1(VGA_F1),
 
 	.pSndL(aud_r),
 	.pSndR(aud_l),
