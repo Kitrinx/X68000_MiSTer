@@ -248,8 +248,8 @@ parameter CONF_STR = {
 	"R8,Power Button;",
 	"R0,Reset and Apply HDD;",
 	"-;",
-	"J,Fire 1,Fire 2; ",
-	"jn,Fire 1,Fire 2;",
+	"J,Fire 1,Fire 2, Run, Select; ",
+	"jn,Fire 1,Fire 2, Run, Select;",
 	"I,",
 	"MT32-pi: SoundFont #0,",
 	"MT32-pi: SoundFont #1,",
@@ -319,8 +319,8 @@ wire  [1:0] buttons;
 
 wire [15:0] joystick_0, joystick_1;
 
-wire  [5:0] joyA = ~{joystick_0[5:4],joystick_0[0],joystick_0[1],joystick_0[2],joystick_0[3]};
-wire  [5:0] joyB = ~{joystick_1[5:4],joystick_1[0],joystick_1[1],joystick_1[2],joystick_1[3]};
+wire  [5:0] joyA = ~{joystick_0[5:4],joystick_0[0] | joystick_0[6],joystick_0[1] | joystick_0[6],joystick_0[2] | joystick_0[7],joystick_0[3] | joystick_0[7]};
+wire  [5:0] joyB = ~{joystick_1[5:4],joystick_1[0] | joystick_1[6],joystick_1[1] | joystick_1[6],joystick_1[2] | joystick_1[7],joystick_1[3] | joystick_1[7]};
 
 wire        ioctl_download;
 wire  [7:0] ioctl_index;

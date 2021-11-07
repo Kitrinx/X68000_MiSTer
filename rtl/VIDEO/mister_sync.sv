@@ -26,16 +26,16 @@ module mister_sync
 	output  [1:0]       out_HMODE,
 	output  [1:0]       out_VMODE,
 	
-	output               out_hfreq,  // Horizontal frequency: 0 = 15khz 1 = 31khz
-	output  [7:0]        out_htotal, // Total Horizontal Dots divided by 8
-	output  [7:0]        out_hsynl,  // End position of hsync divided by 8
-	output  [7:0]        out_hvbgn,  // Hblank begin divided by 8
-	output  [7:0]        out_hvend,  // Hblank end divided by 8
-	output  [9:0]        out_vtotal, // Total Vertical lines
-	output  [9:0]        out_vsynl,  // End Position of vsync
-	output  [9:0]        out_vvbgn,  // Vblank begin
-	output  [9:0]        out_vvend,  // Vblank end
-	output  [9:0]        out_rintl,
+	output              out_hfreq,  // Horizontal frequency: 0 = 15khz 1 = 31khz
+	output  [7:0]       out_htotal, // Total Horizontal Dots times 8
+	output  [7:0]       out_hsynl,  // End position of hsync times 8
+	output  [7:0]       out_hvbgn,  // Hblank begin times 8 (minus 5?)
+	output  [7:0]       out_hvend,  // Hblank end times 8 (minus 5?)
+	output  [9:0]       out_vtotal, // Total Vertical lines
+	output  [9:0]       out_vsynl,  // End Position of vsync
+	output  [9:0]       out_vvbgn,  // Vblank begin
+	output  [9:0]       out_vvend,  // Vblank end
+	output  [9:0]       out_rintl,
 
 	output logic        pix_ce, // This is the pixel CE
 	output              LRAMSEL,
@@ -45,8 +45,8 @@ module mister_sync
 	output [5:0]        BFOUT,
 	output              HSYNC,
 	output              VSYNC,
-	output              VRTC,   // VBlank out
-	output              HRTC,   // Hblank out
+	output  logic       VRTC,   // VBlank out
+	output  logic       HRTC,   // Hblank out
 	output              VIDEN,  // Video DE
 	output              HCOMP,  // Signals the start of a new line
 	output              VCOMP,  // Signals the start of a new frame
@@ -100,8 +100,8 @@ module mister_sync
 	
 	
 
-	assign VRTC = ~((VCOUNT >= vvbgn_ovr) && (VCOUNT < vvend_ovr));
-	assign HRTC = ~((HUCOUNT >= hvbgn) && (HUCOUNT < hvend));
+	// assign VRTC = ~((VCOUNT >= vvbgn_ovr) && (VCOUNT < vvend_ovr));
+	// assign HRTC = ~((HUCOUNT >= hvbgn) && (HUCOUNT < hvend));
 	assign HSYNC = HUCOUNT < hsynl;
 	assign VSYNC = VCOUNT < vsynl_ovr;
 
@@ -135,7 +135,7 @@ module mister_sync
 	assign Rdat = LRAMDAT[10:6];
 	assign Gdat = LRAMDAT[15:11];
 	assign Bdat = LRAMDAT[5:1];
-	assign Idat = |LRAMDAT[15:1] ? LRAMDAT[0] : 1'b0;
+	assign Idat = LRAMDAT[0];
 
 	// Rising edge of visible area
 	assign HCOMPb = (HCOMPw && ~HCOMPl);
@@ -189,6 +189,8 @@ module mister_sync
 			field <= 0;
 			HCOMPl <= 0;
 			VCOMPl <= 0;
+			HRTC <= 1;
+			VRTC <= 1;
 		end else if (pix_ce) begin
 			dotpu_cnt <= dotpu_cnt + 1'd1;
 			HCOMPw <= 0;
@@ -201,13 +203,23 @@ module mister_sync
 				LSEL <= ~LSEL;
 
 			if (&dotpu_cnt) begin // Horizontal Tick
+				HUCOUNT <= HUCOUNT + 1'd1;
+				if (HUCOUNT == hvbgn)
+					HRTC <= 0;
+				else if (HUCOUNT == hvend)
+					HRTC <= 1;
+
 				if (~HRTC)
 					hvcount <= hvcount + 1'd1;
 				else
 					hvcount <= 0;
-				HUCOUNT <= HUCOUNT + 1'd1;
+
 				if (HUCOUNT >= htotal_m) begin
 					VCOUNT <= VCOUNT + 1'd1;
+					if (VCOUNT == vvbgn_ovr)
+						VRTC <= 0;
+					else if (VCOUNT == vvend_ovr)
+						VRTC <= 1;
 					HCOMPw <= 1;
 					HUCOUNT <= 0;
 					if (~VRTC)
@@ -228,10 +240,10 @@ module mister_sync
 	assign LRAMSEL  = LSEL;
 	assign HCOMP    = HCOMPb & pix_ce;
 	assign VCOMP    = VCOMPb & pix_ce;
-	assign VPSTART  = HCOMP && VCOUNT==0;
+	assign VPSTART  = HCOMP && VCOUNT==vtotal_m;
 
 	// FIXME: Make blank color black after debugging
-	assign RFOUT = VIDEN ? {Rdat, Idat} : 6'b111111;
+	assign RFOUT = VIDEN ? {Rdat, Idat} : 6'd0;
 	assign GFOUT = VIDEN ? {Gdat, Idat} : 6'd0;
-	assign BFOUT = VIDEN ? {Bdat, Idat} : 6'b011111;
+	assign BFOUT = VIDEN ? {Bdat, Idat} : 6'd0;
 endmodule

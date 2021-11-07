@@ -191,10 +191,7 @@ signal	cur_taddrh	:std_logic_vector(arange-9 downto 0);
 
 signal	haddr	:std_logic_vector(9 downto 0);
 signal	vaddr   :std_logic_vector(9 downto 0);
-signal	roster  :std_logic_vector(9 downto 0);
-
-signal	haddr256:std_logic_vector(9 downto 0);
-signal	haddr512:std_logic_vector(9 downto 0);
+signal	raster  :std_logic_vector(9 downto 0);
 
 signal	haddrmod:std_logic_vector(9 downto 0);
 signal	vaddrmod:std_logic_vector(9 downto 0);
@@ -275,15 +272,6 @@ signal	gdoten		:std_logic;
 signal	tdoten		:std_logic;
 signal	sdoten		:std_logic;
 signal	exbit,exbitd		:std_logic;
-signal	xhtotal		:std_logic_vector(7 downto 0);
-signal	xhvbgn		:std_logic_vector(7 downto 0);
-signal	xhvend		:std_logic_vector(7 downto 0);
-signal	xvtotal		:std_logic_vector(9 downto 0);
-signal	xvvbgn		:std_logic_vector(9 downto 0);
-signal	xvvend		:std_logic_vector(9 downto 0);
-signal	xrintline	:std_logic_vector(9 downto 0);
-signal	mrintline	:std_logic_vector(9 downto 0);
-signal	ivaddr		:std_logic_vector(9 downto 0);
 signal	vviden,lvviden	:std_logic;
 signal	hviden,lhviden	:std_logic;
 
@@ -315,17 +303,9 @@ signal	vaddrm	:std_logic_vector(9 downto 0);
 signal	vaddrs	:std_logic_vector(9 downto 0);
 signal	xinter	:std_logic;
 signal	intfil	:std_logic;
-
+signal  mix_ibit:std_logic;
 constant azero	:std_logic_vector(arange-1 downto 0)	:=(others=>'0');
 begin
-
-	xhtotal <= htotal ;--when hfreq='1' or vres='0' else htotal(6 downto 0) & '0';
-	xhvbgn  <= hvbgn  ;--when hfreq='1' or vres='0' else hvbgn(6 downto 0) & '0';
-	xhvend  <= hvend  ;--when hfreq='1' or vres='0' else hvend(6 downto 0) & '0';
-	xvtotal <= vtotal ;--when hfreq='1' or vres='0' else vtotal(8 downto 0) & '0';
-	xvvbgn  <= vvbgn  ;--when hfreq='1' or vres='0' else vvbgn(8 downto 0) & '0';
-	xvvend  <= vvend  ;--when hfreq='1' or vres='0' else vvend(8 downto 0) & '0';
-
 	g_ddaten<=	'1' when g4_ddat/=x"0" and gmode="00" else
 					'1' when g8_ddat(3 downto 0)/=x"0" and gmode="01" else
 					'1' when g16_ddat/=x"0000" and gmode(1)='1' else
@@ -352,9 +332,6 @@ begin
 	end process;
 	
 	haddrmod<=  haddr;
-				-- haddr256 when hres="00" else
-				-- haddr512 when hres="01" else
-				-- haddr;
 
 	-- 256 height in high freqency will doublescan the image
 	vaddroff <= vaddr;
@@ -560,16 +537,13 @@ begin
 
 
 	process(vidclk)
-	variable hvwidth	:std_logic_vector(9 downto 0);
+	variable hvwidth	:std_logic_vector(10 downto 0);
 	begin
 		if rising_edge(vidclk) then
 			if(rstn='0')then
 				haddr<=(others=>'0');
 				vaddr<=(others=>'0');
-				roster<=(others=>'0');
-				haddr256<=(others=>'0');
-				haddr512<=(others=>'0');
-				h3count<=0;
+				raster<=(others=>'0');
 				lbwr<='0';
 				nxt_trd<='0';
 				nxt_g0rd<='0';
@@ -617,10 +591,8 @@ begin
 				end if;
 				if(vpstart='1')then
 					haddr<=(others=>'0');
-					haddr256<=(others=>'0');
-					haddr512<=(others=>'0');
 					vaddr<=(others=>'1');
-					roster<=(others=>'1');
+					raster<=(others=>'1');
 					h3count<=0;
 					g0_clear<=	gclrpage(0) and gclrbusyb;
 					g1_clear<=	gclrpage(1) and gclrbusyb;
@@ -650,10 +622,8 @@ begin
 					cur_g1r0c8addrh<=nxt_g1r0c8addrh;
 					cur_g0r0c16addrh<=nxt_g0r0c16addrh;
 					haddr<=(others=>'0');
-					haddr256<=(others=>'0');
-					haddr512<=(others=>'0');
 					lvviden<=vviden;
-					roster<=roster+"0000000001";
+					raster<=raster+"0000000001";
 					hviden<='1';
 					vviden<= not vblank;
 					if vblank='0' then
@@ -667,7 +637,6 @@ begin
 						nxt_g1rd<=	g1en and (not (gclrpage(1) and gclrbusyb));
 						nxt_g2rd<=	g2en and (not (gclrpage(2) and gclrbusyb));
 						nxt_g3rd<=	g3en and (not (gclrpage(3) and gclrbusyb));
-						--vviden<='1';
 					else
 						g0_clear<=	'0';
 						g1_clear<=	'0';
@@ -678,7 +647,6 @@ begin
 						nxt_g1rd<=	'0';
 						nxt_g2rd<=	'0';
 						nxt_g3rd<=	'0';
-						--vviden<='0';
 					end if;
 					cur_trd<=nxt_trd;
 					cur_g0rd<=nxt_g0rd;
@@ -687,9 +655,8 @@ begin
 					cur_g3rd<=nxt_g3rd;
 					ramsel<=not ramsel;
 				else
-					--hviden <= not hblank;
 					if(haddr<"1111111111")then
-						hvwidth:=(hvend(6 downto 0)-hvbgn(6 downto 0)-"0000001") & "111";
+						hvwidth:=(hvend-hvbgn-"00000001") & "111";
 						haddr<=haddr+"0000000001";
 						lbwr<='1';
 						if(haddr=hvwidth)then -- hres(1)='1' and
@@ -709,64 +676,52 @@ begin
 	
 	vlineno<=vaddr;
 	
-	process(vidclk)begin
-		if rising_edge(vidclk) then
-			if(rstn='0')then
-				inter<='0';
-			elsif(vid_ce='1')then
-				if(vpstart='1')then
-					inter<=not inter;
-				end if;
-			end if;
-		end if;
-	end process;
+	-- process(vidclk)begin
+	-- 	if rising_edge(vidclk) then
+	-- 		if(rstn='0')then
+	-- 			inter<='0';
+	-- 		elsif(vid_ce='1')then
+	-- 			if(vpstart='1')then
+	-- 				inter<=not inter;
+	-- 			end if;
+	-- 		end if;
+	-- 	end if;
+	-- end process;
 	
-	process(rintline,vtotal,vvbgn,vvend)
-	begin
-	end process;
+	-- process(rintline,vtotal,vvbgn,vvend)
+	-- begin
+	-- end process;
 
-	process(sysclk)
-	variable lvaddr0,lvaddr1	:std_logic_vector(9 downto 0);
-	variable vaddrx	:std_logic_vector(9 downto 0);
-	begin
-		if rising_edge(sysclk) then
-			if(rstn='0')then
-				vaddrx:=(others=>'0');
-				lvaddr0:=(others=>'0');
-				lvaddr1:=(others=>'0');
-				vaddrm<=(others=>'0');
-				vaddrs<=(others=>'0');
-				intfil<='0';
-			elsif(sys_ce='1')then
-				if(lvaddr0=lvaddr1)then
-					vaddrs<=lvaddr0;
-				end if;
-				lvaddr1:=lvaddr0;
-				lvaddr0:=vaddr;
-				vaddrx:=vaddrs+xvvbgn;
-				if(vaddrx>=xvtotal)then
-					vaddrx:=vaddrx;---VWIDTH;
-					xinter<=not inter;
-					if(vaddrx>xvtotal)then
-						intfil<='0';
-					else
-						intfil<='1';
-					end if;
-				else
-					xinter<=inter;
-					intfil<='1';
-				end if;
-				vaddrm<=vaddrx;
-			end if;
-		end if;
-	end process;
+	-- process(sysclk)
+	-- variable lvaddr0,lvaddr1	:std_logic_vector(9 downto 0);
+	-- variable vaddrx	:std_logic_vector(9 downto 0);
+	-- begin
+	-- 	if rising_edge(sysclk) then
+	-- 		if(rstn='0')then
+	-- 			vaddrx:=(others=>'0');
+	-- 			lvaddr0:=(others=>'0');
+	-- 			lvaddr1:=(others=>'0');
+	-- 			vaddrm<=(others=>'0');
+	-- 			vaddrs<=(others=>'0');
+	-- 			intfil<='0';
+	-- 		elsif(sys_ce='1')then
+	-- 			if(lvaddr0=lvaddr1)then
+	-- 				vaddrs<=lvaddr0;
+	-- 			end if;
+	-- 			lvaddr1:=lvaddr0;
+	-- 			lvaddr0:=raster;
+	-- 			vaddrx:=vaddrs;
+	-- 			vaddrm<=vaddrx;
+	-- 		end if;
+	-- 	end if;
+	-- end process;
 	
 	--rastnum<=	vaddrm;-- when hfreq='1' else ('0' & vaddrm(9 downto 1));
 					-- when xinter='0' else
 --					('0' & vaddrm(9 downto 1)) + vtotal;
 
 	--rint<='1' when rintline=rastnum and intfil='1' else '0';
-	rastnum<=roster;
+	rastnum<=raster;
 	rint<='1' when rintline=rastnum and vblank = '0' else '0';
 	
 	addrx<=haddrmod(9 downto 0);
@@ -776,8 +731,8 @@ begin
 	sdoten<=	'0' when spren='0' else
 				'0' when sprite_ind(3 downto 0)=x"0" or (spalin=x"0000" and sprite_ind(3 downto 0)/=x"1") else
 				'1';
-	gdoten<=	'0' when grpen='0' or txten='1' else
-				-- '0' when gpalin=x"0000" and g_ddatend='0' else
+	gdoten<=	'0' when grpen='0' else
+				'0' when gpalin=x"0000" and g_ddatend='0' else
 				-- '0' when gpalin=x"0000" and g4_ddat="0000" and gmode="00" else
 				-- '0' when gpalin=x"0000" and g8_ddat=x"00" and gmode="01" else
 				-- '0' when gpalin=x"0000" and g16_ddat=x"0000" and gmode(1)='1' else
@@ -787,10 +742,11 @@ begin
 	tpalno<="0000" & t_ddat;
 	spalno<=sprite_in;
 	
+	mix_ibit <= '1' when mixsrc(0)='1' or gpalin(0)='1' else '0';
 	mixg<=	('0' & mixsrc(15 downto 11)) + ('0' & gpalin(15 downto 11));
 	mixr<=	('0' & mixsrc(10 downto  6)) + ('0' & gpalin(10 downto  6));
 	mixb<=	('0' & mixsrc( 5 downto  1)) + ('0' & gpalin( 5 downto  1));
-	mixdst<=	mixg(5 downto 1) & mixr(5 downto 1) & mixb(5 downto 1) & '0';
+	mixdst<=	mixg(5 downto 1) & mixr(5 downto 1) & mixb(5 downto 1) & mix_ibit;
 	gmixdat<=mixdst	when ah='1' and exbit='1' else
 				mixdst	when exon='1' and hp='1' and exbitd='1' else
 				gpalin;
@@ -934,5 +890,3 @@ begin
 	vvideoen<=vviden;
 	
 end rtl;
-				
-			
